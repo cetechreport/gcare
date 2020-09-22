@@ -4,6 +4,7 @@
 #include <boost/functional/hash.hpp>
 #include <string>
 #include <vector>
+#include <utility>
 
 #define BINARY_THRESHOLD 4
 
@@ -63,10 +64,14 @@ struct range {
 };
 
 struct Edge {
-	int src, dst, el;
+	int src, dst, el, id;
 
 	Edge(int s, int d, int e) : src(s), dst(d), el(e) {}
+    Edge(int s, int d, int e, int id) : src(s), dst(d), el(e), id(id) {}
 	Edge() {}
+
+	static const int FORWARD = 0;
+    static const int BACKWARD = 1;
 
 	bool operator<(const Edge& other) const {
 		if (src < other.src)
@@ -85,6 +90,25 @@ struct Edge {
 	}
 };
 
+struct SubQEdgeNode {
+    int count;
+    Edge edge;
+    int prevIdx;
+
+    int currentEnc;
+
+    SubQEdgeNode(int c, Edge e, int enc, int prevIdx): count(c), edge(e), prevIdx(prevIdx), currentEnc(enc) {}
+};
+
+namespace std {
+    template<>
+    struct hash<Edge> {
+        size_t operator()(const Edge &e) const {
+            return e.src + e.dst + e.el;
+        }
+    };
+}
+
 struct EdgeHasher {
 	std::size_t operator () (const Edge &key) const 
 	{
@@ -100,5 +124,8 @@ struct EdgeHasher {
 	}
 };
 
+string sortVList(const string &vList);
+bool isAcyclicConnected(const string &vList);
+string extractLabelSeq(const string &subVList, const string &queryVList, const string &queryLabelSeq);
 
 #endif

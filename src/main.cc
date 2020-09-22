@@ -22,6 +22,7 @@
 #include "../include/sumrdf.h"
 #include "../include/wander_join.h"
 #include "../include/jsub.h"
+#include "../include/mt.h"
 #endif
 #include "../include/memory.h"
 
@@ -46,6 +47,7 @@ int main(int argc, char** argv) {
         ("input,i", po::value<std::string>(), "input file (in build mode: text data graph, in query mode: text query graph)")
         ("output,o", po::value<std::string>(), "output directory in query mode")
         ("data,d", po::value<std::string>(), "binary datafile")
+        ("catfile,c", po::value<std::string>(), "catalogue file")
         ("ratio,p", po::value<string>()->default_value("0.03"), "sampling ratio")
         ("iteration,n", po::value<int>()->default_value(30), "iterations per query")
         ("seed,s", po::value<int>()->default_value(0), "random seed");
@@ -106,6 +108,12 @@ int main(int argc, char** argv) {
     }
 #endif
     summary_str = summary_str + ".s" + to_string(seed);
+#ifndef RELATION
+    if (vm.count("query") && method == string("mt")) {
+        summary_str = vm["catfile"].as<string>();
+        estimator = new MarkovTable;
+    }
+#endif
 
   std::cout << "summary: " << summary_str << "\n";
   string output_str  = vm["output"].as<string>();
@@ -121,22 +129,27 @@ int main(int argc, char** argv) {
       g.ClearRawData();
     }
     g.ReadBinary(data_str.c_str());
-    srand(seed);
-    auto chkpt = Clock::now();
-    estimator->Summarize(g, summary_str.c_str(), p); 
-    auto elapsed_nanoseconds = Clock::now() - chkpt;
-    double summary_build_time = elapsed_nanoseconds.count() / 1000000;
-    std::fstream fout;
-    string output_fn = output_str;
-    fout.open(output_fn.c_str(), std::fstream::out);
-    fout << summary_build_time << endl;
-    fout.close();
+    if (method != string("mt")) {
+        srand(seed);
+        auto chkpt = Clock::now();
+        estimator->Summarize(g, summary_str.c_str(), p);
+        auto elapsed_nanoseconds = Clock::now() - chkpt;
+        double summary_build_time = elapsed_nanoseconds.count() / 1000000;
+        std::fstream fout;
+        string output_fn = output_str;
+        fout.open(output_fn.c_str(), std::fstream::out);
+        fout << summary_build_time << endl;
+        fout.close();
+    }
   } else {
     //query mode
     std::cout << "Query Mode\n";
     DataGraph g;
     int chkpt = getValueOfPhysicalMemoryUsage();
     g.ReadBinary(data_str.c_str());
+    if (method == string("mt")) {
+        estimator->SetDataGraph(&g);
+    }
     estimator->ReadSummary(summary_str.c_str());
     int num_iter  = vm["iteration"].as<int>();
     namespace fs = std::experimental::filesystem;

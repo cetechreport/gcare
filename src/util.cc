@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include "../include/util.h"
+#include <boost/algorithm/string.hpp>
 
 vector<string> parse(string line, string del)
 {
@@ -64,3 +65,59 @@ vector<string> tokenize(const string& line, const char* delim)
 	return tokens;
 }
 
+string sortVList(const string &vList) {
+    vector<string> sorted;
+    boost::split(sorted, vList, boost::is_any_of(";"));
+    sort(sorted.begin(), sorted.end());
+    string result;
+    for (const string &e : sorted) {
+        result.append(";").append(e);
+    }
+    return result.substr(1);
+}
+
+bool isAcyclicConnected(const string &vListStr) {
+    set<string> component;
+    vector<string> vList;
+    boost::split(vList, vListStr, boost::is_any_of(";-"));
+    for (int i = 0; i < vList.size(); i += 2) {
+        if (!component.empty()) {
+            bool hasSrc = component.count(vList[i]);
+            bool hasDest = component.count(vList[i + 1]);
+            if ((hasSrc && hasDest) || (!hasSrc && !hasDest)) {
+                return false;
+            }
+        }
+
+        component.insert(vList[i]);
+        component.insert(vList[i + 1]);
+    }
+    return true;
+}
+
+string extractLabelSeq(const string &subVListStr, const string &queryVListStr, const string &queryLabelSeqStr) {
+    vector<string> subVList, queryVList, queryLabelSeqTemp, queryLabelSeq;
+    boost::split(subVList, subVListStr, boost::is_any_of(";"));
+    boost::split(queryVList, queryVListStr, boost::is_any_of(";"));
+    boost::split(queryLabelSeqTemp, queryLabelSeqStr, boost::is_any_of("->"));
+
+    // removes empty strings (boost::split cannot consider "->" as one delimiter)
+    for (const string &label : queryLabelSeqTemp) {
+        if (!label.empty()) {
+            queryLabelSeq.push_back(label);
+        }
+    }
+
+    string result;
+    int i = 0;
+    for (const string &edge : subVList) {
+        while (i < queryVList.size()) {
+            if (queryVList[i] == edge) {
+                result.append("->").append(queryLabelSeq[i]);
+                break;
+            }
+            ++i;
+        }
+    }
+    return result.substr(2);
+}
